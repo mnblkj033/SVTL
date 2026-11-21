@@ -20,6 +20,7 @@ object NativeCore {
     fun isLoaded(): Boolean = loaded
 
     external fun init(dataRoot: String): Int
+    external fun installHooks(): Int
     external fun loadPlugins(dir: String, gameVersion: String): Int
     external fun tick(dt: Double)
     external fun stateJson(): String

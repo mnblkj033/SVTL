@@ -135,6 +135,7 @@ private fun installAndPrepare(context: Context, pack: PackInfo): String {
     if (!NativeCore.load(core.absolutePath)) return "核心加载失败"
 
     NativeCore.init(dest.absolutePath)
+    NativeCore.installHooks()
     NativeCore.loadPlugins(File(dest, "plugins").absolutePath, pack.gameVersion)
     dest.deleteRecursively()
     return "已启动 ${pack.name}，解出 $count 个文件，缓存已清理"
