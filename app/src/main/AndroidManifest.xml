@@ -14,7 +14,7 @@
         android:theme="@android:style/Theme.Material.NoActionBar">
 
         <activity
-            android:name=".launcher.LauncherActivity"
+            android:name="com.svtl.launcher.LauncherActivity"
             android:exported="true"
             android:configChanges="orientation|screenSize|keyboardHidden">
             <intent-filter>
