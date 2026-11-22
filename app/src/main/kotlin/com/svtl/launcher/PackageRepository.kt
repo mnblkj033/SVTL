@@ -96,6 +96,16 @@ object PackageRepository {
         return count
     }
 
+    /** 列出包内文件（名字 + 解压后大小）。 */
+    fun listEntries(pack: PackInfo): List<Pair<String, Long>> = runCatching {
+        ZipFile(pack.file).use { zf ->
+            zf.entries().toList()
+                .filter { !it.isDirectory }
+                .map { it.name to it.size }
+                .sortedBy { it.first }
+        }
+    }.getOrDefault(emptyList())
+
     fun cacheDir(context: Context, pack: PackInfo): File =
         File(context.cacheDir, "packs/${pack.name}-${pack.version}")
 }
