@@ -199,26 +199,7 @@ class LauncherActivity : Activity() {
         setContentView(root)
     }
 
-    /** 游戏内左下角状态条：需要「显示在其他应用上层」权限。 */
-    private fun startOverlay() {
-        if (!android.provider.Settings.canDrawOverlays(this)) {
-            runCatching {
-                startActivity(
-                    Intent(
-                        android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                        android.net.Uri.parse("package:$packageName"),
-                    )
-                )
-            }
-            LogStore.add("需要「显示在其他应用上层」权限，授权后再启动")
-            return
-        }
-        runCatching { startService(Intent(this, OverlayService::class.java)) }
-            .onFailure { LogStore.add("状态条启动失败：${it.message}") }
-    }
-
     private fun launchGame() {
-        startOverlay()
         // 轮询游戏状态（不挂钩子）
         runCatching { if (NativeCore.isLoaded()) NativeCore.probeStart() }
         val targets = mutableListOf<Intent>()
