@@ -53,8 +53,5 @@ android {
 }
 
 dependencies {
-    implementation(libs.androidx.core.ktx)
-    implementation(libs.androidx.activity.ktx)
-    implementation(libs.androidx.lifecycle.runtime.ktx)
-    implementation(libs.kotlinx.coroutines.android)
+    // 纯原生 View，不引 AndroidX：合并进游戏 APK 不会版本冲突
 }
