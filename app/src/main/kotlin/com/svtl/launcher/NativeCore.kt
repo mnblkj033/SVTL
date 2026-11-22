@@ -33,4 +33,5 @@ object NativeCore {
     external fun uiTap(x: Float, y: Float): Int
     external fun touchEnabled(): Int
     external fun reloadPlugins(dir: String, gameVersion: String): Int
+    external fun probeStart(): Int
 }

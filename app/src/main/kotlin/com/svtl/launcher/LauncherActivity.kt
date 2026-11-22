@@ -219,6 +219,8 @@ class LauncherActivity : Activity() {
 
     private fun launchGame() {
         startOverlay()
+        // 轮询游戏状态（不挂钩子）
+        runCatching { if (NativeCore.isLoaded()) NativeCore.probeStart() }
         val targets = mutableListOf<Intent>()
         if (embedded) targets += Intent().setClassName(packageName, GAME_ACTIVITY)
         if (gameInstalled) targets += Intent().setClassName(GAME_PACKAGE, GAME_ACTIVITY)
