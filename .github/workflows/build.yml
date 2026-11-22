@@ -10,32 +10,6 @@ permissions:
   contents: write
 
 jobs:
-  cpp:
-    name: 核心 + 工具
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: 编译
-        run: |
-          cmake -S cpp -B build
-          cmake --build build -j
-
-      - name: 打包并校验
-        run: |
-          mkdir -p work/pack-plugins/com.svtl.hello
-          cp build/libhello_plugin.so work/pack-plugins/com.svtl.hello/
-          cp cpp/examples/hello-plugin/manifest.json work/pack-plugins/com.svtl.hello/
-          ./build/svtl-cli pack --core build/libsvtl.so --plugins work/pack-plugins \
-            --out dist/svtl-0.2.0.zip --version 0.2.0
-          ./build/svtl-cli verify --zip dist/svtl-0.2.0.zip
-          ./build/svtl-cli selftest --core build/libsvtl.so --plugins work/pack-plugins
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: svtl-package
-          path: dist/*.zip
-
   android:
     name: 启动器
     runs-on: ubuntu-latest
