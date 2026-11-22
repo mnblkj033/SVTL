@@ -249,8 +249,13 @@ private fun installAndPrepare(context: Context, pack: PackInfo, settings: Settin
     if (!NativeCore.load(core.absolutePath)) return "核心加载失败"
 
     NativeCore.init(dest.absolutePath)
+    // 重宿主第一步：在本进程里初始化 Mono 并打开游戏程序集
+    val booted = NativeCore.monoBoot(dest.absolutePath)
     NativeCore.installHooks()
     NativeCore.loadPlugins(File(dest, "plugins").absolutePath, pack.gameVersion)
+    if (booted == 0) {
+        return "Mono 已初始化，但加载游戏程序集失败（看日志）"
+    }
 
     if (settings.cleanCacheAfterLaunch) {
         dest.deleteRecursively()

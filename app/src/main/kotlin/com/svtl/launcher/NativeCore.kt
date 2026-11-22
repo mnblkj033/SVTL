@@ -20,6 +20,8 @@ object NativeCore {
     fun isLoaded(): Boolean = loaded
 
     external fun init(dataRoot: String): Int
+    /** 在启动器自己的进程里初始化 Mono 并加载游戏程序集。 */
+    external fun monoBoot(packDir: String): Int
     external fun installHooks(): Int
     external fun loadPlugins(dir: String, gameVersion: String): Int
     external fun tick(dt: Double)
