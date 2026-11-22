@@ -20,6 +20,7 @@ import java.io.File
 private const val GAME_PACKAGE = "com.chucklefish.stardewvalley"
 private const val GAME_ACTIVITY = "com.chucklefish.stardewvalley.MainActivity"
 private const val REQ_PICK = 1001
+private const val REQ_PICK_BG = 1002
 
 /**
  * 横屏启动器：左边内容，右边操作面板（参考 ZalithLauncher2）。
@@ -42,8 +43,17 @@ class LauncherActivity : Activity() {
                 android.content.res.Configuration.UI_MODE_NIGHT_YES
         }
         super.onCreate(savedInstanceState)
+        // 全屏沉浸：隐藏状态栏和导航栏，从边缘滑入临时显示
         window.statusBarColor = Color.TRANSPARENT
-        window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+        window.navigationBarColor = Color.TRANSPARENT
+        window.decorView.systemUiVisibility = (
+            View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                or View.SYSTEM_UI_FLAG_FULLSCREEN
+                or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+            )
 
         embedded = runCatching { Class.forName(GAME_ACTIVITY) }.isSuccess
         gameInstalled = runCatching { packageManager.getPackageInfo(GAME_PACKAGE, 0) }.isSuccess
@@ -70,6 +80,48 @@ class LauncherActivity : Activity() {
     private fun accent() = 0xFFB8860B.toInt()
 
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
+
+    private fun backgroundFile() = java.io.File(filesDir, "background.img")
+
+    /** 有自定义背景就用图片，否则用纯色。 */
+    private fun applyBackground(view: View) {
+        val drawable = runCatching {
+            val f = backgroundFile()
+            if (f.isFile) {
+                android.graphics.BitmapFactory.decodeFile(f.absolutePath)
+                    ?.let { android.graphics.drawable.BitmapDrawable(resources, it) }
+            } else {
+                assets.open("launcher_bg.png").use { input ->
+                    android.graphics.drawable.BitmapDrawable(
+                        resources,
+                        android.graphics.BitmapFactory.decodeStream(input),
+                    )
+                }
+            }
+        }.getOrNull()
+
+        if (drawable == null) {
+            view.setBackgroundColor(bgColor())
+            return
+        }
+        // 图片上压一层遮罩，保证文字看得清
+        val scrim = android.graphics.drawable.ColorDrawable(
+            if (dark) Color.parseColor("#73000000") else Color.parseColor("#40FFFFFF")
+        )
+        view.background = android.graphics.drawable.LayerDrawable(arrayOf(drawable, scrim))
+    }
+
+    /** 进场动画：淡入 + 轻微上移。 */
+    private fun fadeIn(view: View) {
+        view.alpha = 0f
+        view.translationY = dp(16).toFloat()
+        view.animate()
+            .alpha(1f)
+            .translationY(0f)
+            .setDuration(420)
+            .setInterpolator(android.view.animation.DecelerateInterpolator())
+            .start()
+    }
 
     private fun rounded(color: Int, radius: Int = 22, stroke: Int = 0): GradientDrawable =
         GradientDrawable().apply {
@@ -122,7 +174,7 @@ class LauncherActivity : Activity() {
     private fun showHome() {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            setBackgroundColor(bgColor())
+            applyBackground(this)
             setPadding(dp(18), dp(14), dp(18), dp(14))
             gravity = Gravity.CENTER_VERTICAL
         }
@@ -199,7 +251,14 @@ class LauncherActivity : Activity() {
         setContentView(root)
     }
 
+    override fun setContentView(view: View) {
+        super.setContentView(view)
+        fadeIn(view)
+    }
+
     private fun launchGame() {
+        // 先弹过渡页，再起游戏
+        runCatching { startActivity(Intent(this, LoadingActivity::class.java)) }
         // 轮询游戏状态（不挂钩子）
         runCatching { if (NativeCore.isLoaded()) NativeCore.probeStart() }
         val targets = mutableListOf<Intent>()
@@ -221,7 +280,7 @@ class LauncherActivity : Activity() {
     private fun showPlugins() {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(bgColor())
+            applyBackground(this)
             setPadding(dp(18), dp(14), dp(18), dp(14))
         }
         val top = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
@@ -285,6 +344,19 @@ class LauncherActivity : Activity() {
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == REQ_PICK_BG && resultCode == RESULT_OK) {
+            val uri = data?.data ?: return
+            Thread {
+                runCatching {
+                    contentResolver.openInputStream(uri)?.use { input ->
+                        backgroundFile().outputStream().use { input.copyTo(it) }
+                    }
+                    LogStore.add("背景已更新")
+                }
+                runOnUiThread { recreate() }
+            }.start()
+            return
+        }
         if (requestCode == REQ_PICK && resultCode == RESULT_OK) {
             val uri: Uri = data?.data ?: return
             val name = uri.lastPathSegment ?: ""
@@ -302,7 +374,7 @@ class LauncherActivity : Activity() {
     private fun showSettings() {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(bgColor())
+            applyBackground(this)
             setPadding(dp(18), dp(14), dp(18), dp(14))
         }
         val top = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
@@ -327,6 +399,31 @@ class LauncherActivity : Activity() {
                     layoutParams = LinearLayout.LayoutParams(dp(8), 1)
                 })
             }
+            addView(row)
+        }))
+        list.addView(gap(10))
+
+        // 背景图片
+        list.addView(card(LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(body("背景", 14f, textColor()))
+            addView(gap(8))
+            val row = LinearLayout(this@LauncherActivity).apply { orientation = LinearLayout.HORIZONTAL }
+            row.addView(pill("选择图片") {
+                startActivityForResult(
+                    Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                        addCategory(Intent.CATEGORY_OPENABLE)
+                        type = "image/*"
+                    },
+                    REQ_PICK_BG,
+                )
+            })
+            row.addView(View(this@LauncherActivity).apply { layoutParams = LinearLayout.LayoutParams(dp(8), 1) })
+            row.addView(pill("恢复默认") {
+                backgroundFile().delete()
+                LogStore.add("背景已恢复默认")
+                recreate()
+            })
             addView(row)
         }))
         list.addView(gap(10))
@@ -372,7 +469,7 @@ class LauncherActivity : Activity() {
     private fun showLogs() {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(bgColor())
+            applyBackground(this)
             setPadding(dp(18), dp(14), dp(18), dp(14))
         }
         val top = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }

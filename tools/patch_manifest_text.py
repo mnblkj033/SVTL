@@ -10,13 +10,19 @@ import sys
 LAUNCHER = "com.svtl.launcher.LauncherActivity"
 GAME = "com.chucklefish.stardewvalley.MainActivity"
 
+LOADING_ACTIVITY = '''        <activity
+            android:name="com.svtl.launcher.LoadingActivity"
+            android:exported="false"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+'''
+
 OUR_ACTIVITY = f'''        <activity
             android:name="{LAUNCHER}"
             android:exported="true"
             android:label="SVTL"
             android:screenOrientation="sensorLandscape"
             android:configChanges="orientation|screenSize|keyboardHidden"
-            android:theme="@android:style/Theme.Material.Light.NoActionBar">
+            android:theme="@android:style/Theme.Material.Light.NoActionBar.Fullscreen">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
@@ -53,7 +59,7 @@ def main(path: str) -> int:
     if idx < 0:
         print("找不到 </application>", file=sys.stderr)
         return 1
-    text = text[:idx] + OUR_ACTIVITY + text[idx:]
+    text = text[:idx] + LOADING_ACTIVITY + OUR_ACTIVITY + text[idx:]
     open(path, "w", encoding="utf-8").write(text)
     print("清单已改：入口 =", LAUNCHER)
     return 0

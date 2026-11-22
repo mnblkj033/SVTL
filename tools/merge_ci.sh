@@ -54,6 +54,12 @@ if [ -n "$CORE_SO" ] && [ -f "$CORE_SO" ]; then
   cp "$CORE_SO" g/lib/arm64-v8a/libsvtl.so
 fi
 
+echo "== 合并 assets =="
+if [ -d l/assets ]; then
+  mkdir -p g/assets
+  cp -rn l/assets/. g/assets/ 2>/dev/null || true
+fi
+
 echo "== 改清单 =="
 python3 tools/patch_manifest_text.py g/AndroidManifest.xml
 

@@ -33,6 +33,8 @@ class SvtlApp : Application() {
                     detach()
                     return
                 }
+                // 游戏画面出来了，关掉启动过渡页
+                if (activity !is LoadingActivity) LoadingActivity.dismiss()
                 // 不管核心有没有加载都挂上：没加载时叠加层会直接显示原因
                 attach(activity)
             }
