@@ -1,10 +1,10 @@
 package com.svtl.launcher
 
 import android.Manifest
-import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
@@ -15,12 +15,10 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -29,15 +27,26 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items as gridItems
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.lightColorScheme
@@ -64,8 +73,9 @@ private const val STORAGE_ROOT = "/storage/emulated/0"
 private val DARK_YELLOW = Color(0xFFB8860B)
 
 /**
- * 启动器：包列表 → 校验 → 解压到缓存 → 加载核心 → 起游戏 → 清缓存。
- * 右侧卡片放「导入游戏」和「启动游戏」。
+ * 竖屏启动器。布局参考 ZalithLauncher2：
+ * 顶部栏（标题 + 图标按钮）→ 卡片网格 → 底部停靠的操作卡片。
+ * https://github.com/ZalithLauncher/ZalithLauncher2
  */
 class LauncherActivity : ComponentActivity() {
 
@@ -83,14 +93,14 @@ class LauncherActivity : ComponentActivity() {
         runCatching { startActivity(intent) }
     }
 
-    /** 申请访问所有文件（Android 11+ 走「所有文件访问权限」页）。 */
+    /** 申请「所有文件访问权限」（Android 11+ 跳系统页）。 */
     fun requestAllFiles() {
         if (Build.VERSION.SDK_INT >= 30) {
             runCatching {
                 startActivity(
                     Intent(
                         Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION,
-                        android.net.Uri.parse("package:$packageName"),
+                        Uri.parse("package:$packageName"),
                     )
                 )
             }
@@ -110,16 +120,12 @@ private fun hasAllFiles(context: Context): Boolean =
         ) == PackageManager.PERMISSION_GRANTED
     }
 
-/**
- * 首页布局参考 ZalithLauncher2：左侧内容区 + 右侧停靠的操作面板（卡片竖排）。
- * https://github.com/ZalithLauncher/ZalithLauncher2
- */
 @Composable
 private fun LauncherRoot() {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var packs by remember { mutableStateOf<List<PackInfo>>(emptyList()) }
-    var status by remember { mutableStateOf("准备就绪") }
+    var status by remember { mutableStateOf("还没有导入游戏") }
     var busy by remember { mutableStateOf(false) }
     var showBrowser by remember { mutableStateOf(false) }
 
@@ -127,6 +133,27 @@ private fun LauncherRoot() {
         scope.launch {
             packs = withContext(Dispatchers.IO) { PackageRepository.scan(context) }
             status = if (packs.isEmpty()) "还没有导入游戏" else "共 ${packs.size} 个包"
+        }
+    }
+
+    fun install(pack: PackInfo) {
+        busy = true
+        scope.launch {
+            val result = withContext(Dispatchers.IO) { installAndPrepare(context, pack) }
+            status = result
+            busy = false
+            if (result.startsWith("已启动")) {
+                (context as? LauncherActivity)?.launchGame()
+            }
+        }
+    }
+
+    fun openImporter() {
+        if (hasAllFiles(context)) {
+            showBrowser = true
+        } else {
+            status = "需要「所有文件访问权限」，授权后再点一次"
+            (context as? LauncherActivity)?.requestAllFiles()
         }
     }
 
@@ -138,88 +165,74 @@ private fun LauncherRoot() {
         return
     }
 
-    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-        val panelWidth = (maxWidth * 0.38f).coerceAtMost(168.dp)
+    Column(modifier = Modifier.fillMaxSize()) {
+        TopBar(
+            status = status,
+            onOpenFiles = { openImporter() },
+            onSettings = { status = "设置还没做" },
+            onAbout = { status = "SVTL 启动器 0.1.3" },
+        )
 
-        Row(
-            modifier = Modifier.fillMaxSize().padding(12.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            // 左侧：内容区
-            Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
-                Text("SVTL", style = MaterialTheme.typography.headlineSmall)
+        // 内容：包卡片网格
+        if (packs.isEmpty()) {
+            Box(
+                modifier = Modifier.weight(1f).fillMaxWidth().padding(24.dp),
+                contentAlignment = Alignment.Center,
+            ) {
                 Text(
-                    status,
-                    style = MaterialTheme.typography.bodySmall,
+                    "点下方「导入游戏」选择游戏包",
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                LazyColumn(
-                    modifier = Modifier.fillMaxWidth().weight(1f).padding(top = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+            }
+        } else {
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(2),
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+                contentPadding = PaddingValues(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                gridItems(packs, key = { it.file.absolutePath }) { pack ->
+                    PackCard(pack = pack, busy = busy, onPlay = { install(pack) })
+                }
+            }
+        }
+
+        // 底部停靠面板：导入 + 启动
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            PanelCard {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { openImporter() }
+                        .padding(horizontal = 14.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    items(packs, key = { it.file.absolutePath }) { pack ->
-                        PackRow(
-                            pack = pack,
-                            busy = busy,
-                            onInstall = {
-                                busy = true
-                                scope.launch {
-                                    val result = withContext(Dispatchers.IO) { installAndPrepare(context, pack) }
-                                    status = result
-                                    busy = false
-                                    if (result.startsWith("已启动")) {
-                                        (context as? LauncherActivity)?.launchGame()
-                                    }
-                                }
-                            },
-                        )
-                    }
+                    Text(
+                        text = "导入游戏",
+                        style = MaterialTheme.typography.labelLarge,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
 
-            // 右侧：操作面板，卡片从底部往上排
-            Column(
-                modifier = Modifier.width(panelWidth).fillMaxHeight(),
-                verticalArrangement = Arrangement.Bottom,
-            ) {
-                Spacer(Modifier.weight(1f))
-
-                PanelCard {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                if (hasAllFiles(context)) {
-                                    showBrowser = true
-                                } else {
-                                    status = "需要「所有文件访问权限」，授权后再点一次"
-                                    (context as? LauncherActivity)?.requestAllFiles()
-                                }
-                            }
-                            .padding(horizontal = 14.dp, vertical = 14.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = "导入游戏",
-                            style = MaterialTheme.typography.labelLarge,
-                            modifier = Modifier.weight(1f),
-                        )
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-
-                Spacer(Modifier.height(4.dp))
-
-                PanelCard {
-                    Column(
-                        modifier = Modifier.fillMaxWidth().padding(14.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
-                    ) {
+            PanelCard {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = packs.firstOrNull()?.name ?: "未导入",
                             style = MaterialTheme.typography.labelLarge,
@@ -227,27 +240,105 @@ private fun LauncherRoot() {
                             overflow = TextOverflow.Ellipsis,
                         )
                         Text(
-                            text = packs.firstOrNull()?.version ?: "点上方导入游戏",
+                            text = packs.firstOrNull()?.let { "${it.version} · ${it.size / 1024 / 1024} MB" }
+                                ?: "先导入游戏包",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
-                        Spacer(Modifier.height(6.dp))
-                        Button(
-                            onClick = { (context as? LauncherActivity)?.launchGame() },
-                            enabled = !busy,
-                            shape = RoundedCornerShape(percent = 50),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = DARK_YELLOW,
-                                contentColor = Color.White,
-                            ),
-                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            Text("启动游戏", style = MaterialTheme.typography.labelMedium)
-                        }
                     }
+                    Button(
+                        onClick = { (context as? LauncherActivity)?.launchGame() },
+                        enabled = !busy,
+                        shape = RoundedCornerShape(percent = 50),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = DARK_YELLOW,
+                            contentColor = Color.White,
+                        ),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                    ) {
+                        Text("启动游戏", style = MaterialTheme.typography.labelMedium)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TopBar(
+    status: String,
+    onOpenFiles: () -> Unit,
+    onSettings: () -> Unit,
+    onAbout: () -> Unit,
+) {
+    Surface(color = MaterialTheme.colorScheme.surface, tonalElevation = 2.dp) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f).padding(start = 6.dp)) {
+                Text("SVTL", style = MaterialTheme.typography.titleLarge)
+                Text(
+                    status,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            IconButton(onClick = onOpenFiles) {
+                Icon(Icons.Filled.Folder, contentDescription = "文件")
+            }
+            IconButton(onClick = onSettings) {
+                Icon(Icons.Filled.Settings, contentDescription = "设置")
+            }
+            IconButton(onClick = onAbout) {
+                Icon(Icons.Filled.Info, contentDescription = "关于")
+            }
+        }
+    }
+}
+
+@Composable
+private fun PackCard(pack: PackInfo, busy: Boolean, onPlay: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Text(
+                text = pack.name,
+                style = MaterialTheme.typography.titleSmall,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = "${pack.version} · ${pack.size / 1024 / 1024} MB",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "${pack.entryCount} 个文件",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f),
+                )
+                FilledIconButton(
+                    onClick = onPlay,
+                    enabled = !busy,
+                    shape = CircleShape,
+                    modifier = Modifier.size(36.dp),
+                ) {
+                    Icon(Icons.Filled.PlayArrow, contentDescription = "安装并启动")
                 }
             }
         }
@@ -258,7 +349,7 @@ private fun LauncherRoot() {
 private fun PanelCard(content: @Composable () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
@@ -313,21 +404,6 @@ private fun FileBrowserScreen(onBack: () -> Unit) {
                     }
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun PackRow(pack: PackInfo, busy: Boolean, onInstall: () -> Unit) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("${pack.name}  ${pack.version}", style = MaterialTheme.typography.titleMedium)
-            Text(
-                "游戏 ${pack.gameVersion} · ${pack.entryCount} 个文件 · ${pack.size / 1024 / 1024} MB",
-                style = MaterialTheme.typography.bodySmall,
-            )
-            Text(pack.file.absolutePath, style = MaterialTheme.typography.bodySmall)
-            Button(onClick = onInstall, enabled = !busy) { Text("安装并启动") }
         }
     }
 }
