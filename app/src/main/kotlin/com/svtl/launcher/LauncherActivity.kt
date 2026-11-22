@@ -31,6 +31,8 @@ import kotlinx.coroutines.withContext
 import java.io.File
 
 private const val STORAGE_ROOT = "/storage/emulated/0"
+private const val GAME_PACKAGE = "com.chucklefish.stardewvalley"
+private const val GAME_ACTIVITY = "com.chucklefish.stardewvalley.MainActivity"
 
 /**
  * 竖屏启动器。用原生 View 写，不依赖 Compose ——
@@ -40,6 +42,7 @@ class LauncherActivity : ComponentActivity() {
 
     private lateinit var settings: SettingsStore
     private var embedded = false
+    private var gameInstalled = false
     private var dark = false
 
     private val pickPlugin = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -69,8 +72,9 @@ class LauncherActivity : ComponentActivity() {
         else android.R.style.Theme_Material_Light_NoActionBar)
         super.onCreate(savedInstanceState)
 
-        embedded = runCatching {
-            Class.forName("com.chucklefish.stardewvalley.MainActivity")
+        embedded = runCatching { Class.forName(GAME_ACTIVITY) }.isSuccess
+        gameInstalled = runCatching {
+            packageManager.getPackageInfo(GAME_PACKAGE, 0)
         }.isSuccess
 
         lifecycleScope.launch {
@@ -154,7 +158,11 @@ class LauncherActivity : ComponentActivity() {
         titleBox.addView(label("SVTL", 22f))
         titleBox.addView(
             label(
-                if (embedded) "游戏已内嵌" else "独立启动器（没有游戏本体）",
+                when {
+                    embedded -> "游戏已内嵌"
+                    gameInstalled -> "已检测到已安装的星露谷"
+                    else -> "未检测到游戏"
+                },
                 12f, sub()
             )
         )
@@ -188,23 +196,35 @@ class LauncherActivity : ComponentActivity() {
         root.addView(scroll(body))
         root.addView(space(10))
 
-        val launch = action(if (embedded) "启动游戏" else "需要合并包才有游戏") {
-            if (embedded) launchGame()
+        val canLaunch = embedded || gameInstalled
+        val launch = action(if (canLaunch) "启动游戏" else "未检测到星露谷") {
+            launchGame()
         }
-        launch.isEnabled = embedded
+        launch.isEnabled = canLaunch
         launch.textSize = 16f
         root.addView(launch, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(52)))
 
         setBody(root)
     }
 
+    /** 先试自己包里的（合并包），再试已安装的游戏。 */
     private fun launchGame() {
-        val intent = Intent()
-            .setClassName(packageName, "com.chucklefish.stardewvalley.MainActivity")
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        LogStore.add("启动游戏")
-        runCatching { startActivity(intent) }
-            .onFailure { LogStore.add("启动失败：${it.message}") }
+        val targets = mutableListOf<Intent>()
+        if (embedded) {
+            targets += Intent().setClassName(packageName, GAME_ACTIVITY)
+        }
+        if (gameInstalled) {
+            targets += Intent().setClassName(GAME_PACKAGE, GAME_ACTIVITY)
+        }
+        packageManager.getLaunchIntentForPackage(GAME_PACKAGE)?.let { targets += it }
+
+        for (intent in targets) {
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            val ok = runCatching { startActivity(intent) }.isSuccess
+            LogStore.add("启动 ${intent.component?.flattenToShortString()}：${if (ok) "成功" else "失败"}")
+            if (ok) return
+        }
+        LogStore.add("没找到可启动的游戏，请先安装星露谷")
     }
 
     /* ---------------- 插件 ---------------- */
@@ -324,7 +344,8 @@ class LauncherActivity : ComponentActivity() {
         })
         root.addView(top)
         root.addView(space(8))
-        val tv = label(LogStore.lines.joinToString("\n").ifBlank { "还没有日志" }, 12f, sub())
+        val text = if (LogStore.lines.isEmpty()) "还没有日志" else LogStore.lines.joinToString("\n")
+        val tv = label(text, 12f, sub())
         root.addView(scroll(tv))
         setBody(root)
     }
