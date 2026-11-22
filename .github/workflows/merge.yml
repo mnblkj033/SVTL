@@ -5,10 +5,10 @@ on:
   workflow_dispatch:
     inputs:
       game_apk_url:
-        description: "游戏 APK 的直链（Release 附件 / 网盘直链）"
-        required: true
+        description: "可选：覆盖游戏 APK 直链（留空则从私有仓库 mnblkj033/APK 下载）"
+        required: false
       core_so_url:
-        description: "libsvtl.so 直链（可选，留空则从压缩包加载）"
+        description: "可选：libsvtl.so 直链（留空则运行时从压缩包加载）"
         required: false
 
 jobs:
@@ -30,8 +30,15 @@ jobs:
         run: gradle :app:assembleDebug --no-daemon
 
       - name: 下载游戏 APK
+        env:
+          GH_TOKEN: ${{ secrets.GAME_REPO_TOKEN }}
         run: |
-          curl -fL "${{ inputs.game_apk_url }}" -o game.apk
+          if [ -n "${{ inputs.game_apk_url }}" ]; then
+            curl -fL "${{ inputs.game_apk_url }}" -o game.apk
+          else
+            gh release download game-1.6.15.3 -R mnblkj033/APK -p "*.apk" -D .
+            mv *.apk game.apk
+          fi
           ls -lh game.apk
 
       - name: 下载核心库（可选）
