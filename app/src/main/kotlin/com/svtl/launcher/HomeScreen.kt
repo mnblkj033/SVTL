@@ -43,6 +43,7 @@ private val DARK_YELLOW = Color(0xFFB8860B)
 
 @Composable
 internal fun HomeScreen(
+    embedded: Boolean,
     packs: List<PackInfo>,
     status: String,
     busy: Boolean,
@@ -70,7 +71,8 @@ internal fun HomeScreen(
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    "游戏已内嵌在启动器里，点下方「启动游戏」",
+                    if (embedded) "点下方「启动游戏」进入星露谷"
+                    else "当前是独立启动器，没有游戏本体\n需要用合并包（游戏 + 启动器一体）",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -107,13 +109,13 @@ internal fun HomeScreen(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "星露谷物语 1.6.15.3",
+                            text = if (embedded) "星露谷物语 1.6.15.3" else "未检测到游戏",
                             style = MaterialTheme.typography.labelLarge,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
                         Text(
-                            text = "游戏已内嵌，直接启动",
+                            text = if (embedded) "游戏已内嵌，直接启动" else "需要合并包才有游戏",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
@@ -122,7 +124,7 @@ internal fun HomeScreen(
                     }
                     Button(
                         onClick = onLaunch,
-                        enabled = !busy,
+                        enabled = !busy && embedded,
                         shape = RoundedCornerShape(percent = 50),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = DARK_YELLOW,

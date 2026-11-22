@@ -121,6 +121,10 @@ class LauncherActivity : ComponentActivity() {
     }
 }
 
+/** 合并包里才有游戏的 Activity；独立启动器里没有。 */
+internal fun gameEmbedded(): Boolean =
+    runCatching { Class.forName("com.chucklefish.stardewvalley.MainActivity") }.isSuccess
+
 internal fun hasAllFiles(context: Context): Boolean =
     if (Build.VERSION.SDK_INT >= 30) {
         Environment.isExternalStorageManager()
@@ -142,13 +146,20 @@ private fun LauncherNav(
 
     var screen by remember { mutableStateOf<Screen>(Screen.Home) }
     var packs by remember { mutableStateOf<List<PackInfo>>(emptyList()) }
-    var status by remember { mutableStateOf("还没有导入游戏") }
+    val embedded = remember { gameEmbedded() }
+    var status by remember {
+        mutableStateOf(if (embedded) "游戏已内嵌，可以直接启动" else "独立启动器：没有游戏本体")
+    }
     var busy by remember { mutableStateOf(false) }
 
     fun refresh() {
         scope.launch {
             packs = withContext(Dispatchers.IO) { PackageRepository.scan(context) }
-            status = if (packs.isEmpty()) "还没有导入游戏" else "共 ${packs.size} 个包"
+            status = when {
+                embedded -> "游戏已内嵌，可以直接启动"
+                packs.isEmpty() -> "独立启动器：没有游戏本体"
+                else -> "共 ${packs.size} 个包"
+            }
             LogStore.add("扫描完成：${packs.size} 个包")
         }
     }
@@ -200,11 +211,12 @@ private fun LauncherNav(
 
     when (val s = screen) {
         Screen.Home -> HomeScreen(
+            embedded = embedded,
             packs = packs,
             status = status,
             busy = busy,
             onImport = { openImporter() },
-            onLaunch = { (context as? LauncherActivity)?.launchGame() },
+            onLaunch = { if (embedded) (context as? LauncherActivity)?.launchGame() },
             onOpenFiles = { openImporter() },
             onOpenLogs = { screen = Screen.Logs },
             onOpenPlugins = { screen = Screen.Plugins },
