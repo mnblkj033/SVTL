@@ -30,4 +30,7 @@ object NativeCore {
     external fun drawJson(): String
     external fun logsJson(): String
     external fun hookCount(): Int
+    external fun uiTap(x: Float, y: Float): Int
+    external fun touchEnabled(): Int
+    external fun reloadPlugins(dir: String, gameVersion: String): Int
 }

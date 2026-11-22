@@ -63,7 +63,6 @@ class OverlayService : Service() {
             WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             PixelFormat.TRANSLUCENT,
         ).apply {
@@ -101,6 +100,9 @@ private class OverlayView(context: Context) : View(context) {
         textSize = 28f
     }
     private var running = true
+    private val bitmaps = HashMap<String, android.graphics.Bitmap?>()
+    private var lastFrame = System.currentTimeMillis()
+    private var fps = 0f
 
     private val tick = object : Runnable {
         override fun run() {
@@ -120,6 +122,15 @@ private class OverlayView(context: Context) : View(context) {
         handler.removeCallbacksAndMessages(null)
     }
 
+    override fun onTouchEvent(event: android.view.MotionEvent): Boolean {
+        if (runCatching { NativeCore.touchEnabled() }.getOrDefault(0) == 0) return false
+        if (event.action == android.view.MotionEvent.ACTION_DOWN) {
+            runCatching { NativeCore.uiTap(event.x, event.y) }
+            return true
+        }
+        return true
+    }
+
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
 
@@ -131,7 +142,24 @@ private class OverlayView(context: Context) : View(context) {
                 for (i in 0 until arr.length()) {
                     val o = arr.getJSONObject(i)
                     val c = o.optInt("c", 0xFFFFFFFF.toInt())
-                    if (o.optString("t") == "text") {
+                    if (o.optString("t") == "img") {
+                        val path = o.optString("p")
+                        val bmp = bitmaps.getOrPut(path) {
+                            runCatching { android.graphics.BitmapFactory.decodeFile(path) }.getOrNull()
+                        }
+                        if (bmp != null) {
+                            canvas.drawBitmap(
+                                bmp, null,
+                                android.graphics.RectF(
+                                    o.optDouble("x", 0.0).toFloat(),
+                                    o.optDouble("y", 0.0).toFloat(),
+                                    (o.optDouble("x", 0.0) + o.optDouble("w", 0.0)).toFloat(),
+                                    (o.optDouble("y", 0.0) + o.optDouble("h", 0.0)).toFloat(),
+                                ),
+                                paint
+                            )
+                        }
+                    } else if (o.optString("t") == "text") {
                         textPaint.color = c
                         textPaint.textSize = o.optDouble("size", 16.0).toFloat() *
                             context.resources.displayMetrics.density
@@ -154,7 +182,16 @@ private class OverlayView(context: Context) : View(context) {
             }
         }
 
-        // 2) 左下角状态条
+        // 2) 右上角调试信息
+        val now = System.currentTimeMillis()
+        val dt = (now - lastFrame).coerceAtLeast(1)
+        lastFrame = now
+        fps = if (fps == 0f) 1000f / dt else fps * 0.9f + (1000f / dt) * 0.1f
+        textPaint.color = Color.parseColor("#88FFFFFF").toInt()
+        textPaint.textSize = 24f
+        canvas.drawText("%.0f fps".format(fps), width - 140f, 60f, textPaint)
+
+        // 3) 左下角状态条
         val count = runCatching { PluginStore.scan(context).count { it.enabled } }.getOrDefault(0)
         val label = "插件 $count 个 · 修改版本"
         textPaint.color = Color.parseColor("#FFE9B8")
