@@ -47,12 +47,11 @@ jobs:
 
       - name: 合并 + 签名
         run: |
-          python3 tools/merge_apk.py \
-            --game game.apk \
-            --launcher app/build/outputs/apk/debug/app-debug.apk \
-            --lib "$( [ -f libsvtl.so ] && echo libsvtl.so || echo '' )" \
-            --keystore app/svtl.jks \
-            --out SVTL-merged.apk
+          chmod +x tools/merge_ci.sh
+          tools/merge_ci.sh game.apk \
+            app/build/outputs/apk/debug/app-debug.apk \
+            app/svtl.jks \
+            SVTL-merged.apk
 
       - uses: actions/upload-artifact@v4
         with:

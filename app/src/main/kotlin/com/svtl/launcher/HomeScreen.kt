@@ -67,7 +67,7 @@ internal fun HomeScreen(
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    "点下方「导入游戏」选择游戏包",
+                    "游戏已内嵌在启动器里，点下方「启动游戏」",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -98,42 +98,19 @@ internal fun HomeScreen(
         ) {
             PanelCard {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onImport() }
-                        .padding(horizontal = 14.dp, vertical = 14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = "导入游戏",
-                        style = MaterialTheme.typography.labelLarge,
-                        modifier = Modifier.weight(1f),
-                    )
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-
-            PanelCard {
-                Row(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = packs.firstOrNull()?.name ?: "未导入",
+                            text = "星露谷物语 1.6.15.3",
                             style = MaterialTheme.typography.labelLarge,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
                         Text(
-                            text = packs.firstOrNull()?.let { "${it.version} · ${it.size / 1024 / 1024} MB" }
-                                ?: "先导入游戏包",
+                            text = "游戏已内嵌，直接启动",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
