@@ -14,7 +14,7 @@ OUR_ACTIVITY = f'''        <activity
             android:name="{LAUNCHER}"
             android:exported="true"
             android:label="SVTL"
-            android:screenOrientation="portrait"
+            android:screenOrientation="sensorLandscape"
             android:configChanges="orientation|screenSize|keyboardHidden"
             android:theme="@android:style/Theme.Material.Light.NoActionBar">
             <intent-filter>
