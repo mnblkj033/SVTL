@@ -1,6 +1,7 @@
 package com.svtl.launcher
 
 import android.app.Activity
+import com.svtl.manager.BuildConfig
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
