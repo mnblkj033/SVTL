@@ -18,6 +18,7 @@ import android.provider.Settings
 import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
+import android.widget.TextView
 import org.json.JSONArray
 
 /**
