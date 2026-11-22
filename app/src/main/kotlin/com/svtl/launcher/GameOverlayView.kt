@@ -20,6 +20,8 @@ internal class OverlayView(context: Context) : View(context) {
     }
     private var running = true
     private val bitmaps = HashMap<String, android.graphics.Bitmap?>()
+    private var lastJson: String? = null
+    private var cached: JSONArray? = null
     private var lastFrame = System.currentTimeMillis()
     private var fps = 0f
 
@@ -27,7 +29,7 @@ internal class OverlayView(context: Context) : View(context) {
         override fun run() {
             if (!running) return
             invalidate()
-            handler.postDelayed(this, 100)
+            handler.postDelayed(this, 250)
         }
     }
 
@@ -55,9 +57,13 @@ internal class OverlayView(context: Context) : View(context) {
 
         // 1) 插件画的指令
         val json = runCatching { NativeCore.drawJson() }.getOrNull()
-        if (!json.isNullOrBlank()) {
+        if (json != lastJson) {
+            lastJson = json
+            cached = runCatching { JSONArray(json ?: "[]") }.getOrNull()
+        }
+        if (cached != null) {
             runCatching {
-                val arr = JSONArray(json)
+                val arr = cached!!
                 for (i in 0 until arr.length()) {
                     val o = arr.getJSONObject(i)
                     val c = o.optInt("c", 0xFFFFFFFF.toInt())
@@ -101,6 +107,9 @@ internal class OverlayView(context: Context) : View(context) {
             }
         }
 
+        // 画完就清空，避免绘制列表无限增长（这是之前掉帧的元凶）
+        runCatching { NativeCore.drawClear() }
+
         // 1.5) 状态行：核心 / 插件 / 版本（不依赖核心也能看到）
         val coreOk = runCatching { NativeCore.isLoaded() }.getOrDefault(false)
         val pluginCount = runCatching { PluginStore.scan(context).count { it.enabled } }.getOrDefault(0)
@@ -135,8 +144,8 @@ internal class OverlayView(context: Context) : View(context) {
         lastFrame = now
         fps = if (fps == 0f) 1000f / dt else fps * 0.9f + (1000f / dt) * 0.1f
         textPaint.color = Color.parseColor("#88FFFFFF").toInt()
-        textPaint.textSize = 24f
-        canvas.drawText("%.0f fps".format(fps), width - 140f, 60f, textPaint)
+        textPaint.textSize = 22f
+        canvas.drawText("叠加层刷新 4 次/秒", width - 320f, 60f, textPaint)
 
         // 3) 左下角状态条
         val count = runCatching { PluginStore.scan(context).count { it.enabled } }.getOrDefault(0)

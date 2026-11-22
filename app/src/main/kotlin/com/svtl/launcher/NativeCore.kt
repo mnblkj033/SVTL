@@ -29,6 +29,7 @@ object NativeCore {
     external fun tick(dt: Double)
     external fun stateJson(): String
     external fun drawJson(): String
+    external fun drawClear()
     external fun logsJson(): String
     external fun hookCount(): Int
     external fun uiTap(x: Float, y: Float): Int
