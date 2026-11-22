@@ -379,14 +379,24 @@ class LauncherActivity : Activity() {
         top.addView(pill("返回") { showHome() })
         top.addView(View(this).apply { layoutParams = LinearLayout.LayoutParams(dp(12), 1) })
         top.addView(title("日志", 20f), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        top.addView(pill("复制") {
+            val cm = getSystemService(android.content.ClipboardManager::class.java)
+            cm.setPrimaryClip(
+                android.content.ClipData.newPlainText(
+                    "svtl-log",
+                    LogStore.lines.joinToString("\n"),
+                )
+            )
+        })
         top.addView(pill("清空") { LogStore.clear(); showLogs() })
         root.addView(top)
         root.addView(gap(10))
 
         val text = if (LogStore.lines.isEmpty()) "还没有日志" else LogStore.lines.joinToString("\n")
-        root.addView(ScrollView(this).apply {
-            addView(body(text, 12f))
-        })
+        val logView = body(text, 11f)
+        logView.typeface = android.graphics.Typeface.MONOSPACE
+        logView.setTextIsSelectable(true)
+        root.addView(ScrollView(this).apply { addView(logView) })
         setContentView(root)
     }
 }

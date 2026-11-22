@@ -101,18 +101,29 @@ internal class OverlayView(context: Context) : View(context) {
             }
         }
 
+        // 1.5) 状态行：核心 / 插件 / 版本（不依赖核心也能看到）
+        val coreOk = runCatching { NativeCore.isLoaded() }.getOrDefault(false)
+        val pluginCount = runCatching { PluginStore.scan(context).count { it.enabled } }.getOrDefault(0)
+        textPaint.color = if (coreOk) Color.parseColor("#FF8AB4F8").toInt()
+        else Color.parseColor("#FFFF6B6B").toInt()
+        textPaint.textSize = 24f
+        canvas.drawText(
+            "核心 ${if (coreOk) "已加载" else "未加载"} · 插件 $pluginCount 个 · 修改版本 1.6.15.3",
+            24f, 44f, textPaint,
+        )
+
         // 2) 左上角：核心日志最近几行
         val logs = runCatching { NativeCore.logsJson() }.getOrNull()
         if (!logs.isNullOrBlank()) {
             runCatching {
                 val arr = JSONArray(logs)
-                val start = (arr.length() - 3).coerceAtLeast(0)
+                val start = (arr.length() - 8).coerceAtLeast(0)
                 textPaint.color = Color.parseColor("#CCFFFFFF").toInt()
                 textPaint.textSize = 22f
                 var y = 80f
                 for (i in start until arr.length()) {
                     val line = arr.getString(i)
-                    canvas.drawText(line.take(48), 24f, y, textPaint)
+                    canvas.drawText(line.take(64), 24f, y, textPaint)
                     y += 28f
                 }
             }
@@ -129,7 +140,7 @@ internal class OverlayView(context: Context) : View(context) {
 
         // 3) 左下角状态条
         val count = runCatching { PluginStore.scan(context).count { it.enabled } }.getOrDefault(0)
-        val label = "插件 $count 个 · 修改版本"
+        val label = "插件 $count 个 · 修改版本 1.6.15.3"
         textPaint.color = Color.parseColor("#FFE9B8")
         textPaint.textSize = 30f
         val pad = 24f

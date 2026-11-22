@@ -23,8 +23,17 @@ object PluginStore {
 
     fun root(context: Context): File = File(context.filesDir, "plugins")
 
+    /** 外部目录：重装 APK 不会被清掉 */
+    fun externalRoot(): File = File("/sdcard/SVTL/plugins")
+
+    private fun roots(context: Context): List<File> =
+        listOf(root(context), externalRoot()).filter { it.isDirectory || it.parentFile?.exists() == true }
+
     fun scan(context: Context): List<PluginInfo> {
-        val dirs = root(context).listFiles()?.filter { it.isDirectory } ?: return emptyList()
+        val dirs = roots(context).flatMap { r ->
+            r.listFiles()?.filter { it.isDirectory } ?: emptyList()
+        }
+        if (dirs.isEmpty()) return emptyList()
         return dirs.mapNotNull { dir ->
             val mf = File(dir, "manifest.json")
             if (!mf.isFile) return@mapNotNull null

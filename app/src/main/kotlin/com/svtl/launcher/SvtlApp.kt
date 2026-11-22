@@ -33,7 +33,8 @@ class SvtlApp : Application() {
                     detach()
                     return
                 }
-                if (NativeCore.isLoaded()) attach(activity)
+                // 不管核心有没有加载都挂上：没加载时叠加层会直接显示原因
+                attach(activity)
             }
 
             override fun onActivityPaused(activity: Activity) {
