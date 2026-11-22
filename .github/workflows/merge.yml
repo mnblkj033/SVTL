@@ -41,9 +41,16 @@ jobs:
           fi
           ls -lh game.apk
 
-      - name: 下载核心库（可选）
-        if: ${{ inputs.core_so_url != '' }}
-        run: curl -fL "${{ inputs.core_so_url }}" -o libsvtl.so
+      - name: 下载核心库
+        env:
+          GH_TOKEN: ${{ secrets.GAME_REPO_TOKEN }}
+        run: |
+          if [ -n "${{ inputs.core_so_url }}" ]; then
+            curl -fL "${{ inputs.core_so_url }}" -o libsvtl.so
+          else
+            gh release download game-1.6.15.3 -R mnblkj033/APK -p "libsvtl.so" -D . --clobber
+          fi
+          ls -lh libsvtl.so
 
       - name: 合并 + 签名
         run: |
@@ -51,7 +58,8 @@ jobs:
           tools/merge_ci.sh game.apk \
             app/build/outputs/apk/debug/app-debug.apk \
             app/svtl.jks \
-            SVTL-merged.apk
+            SVTL-merged.apk \
+            libsvtl.so
 
       - uses: actions/upload-artifact@v4
         with:

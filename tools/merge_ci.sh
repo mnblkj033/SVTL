@@ -7,6 +7,7 @@ GAME="$1"
 LAUNCHER="$2"
 KEYSTORE="$3"
 OUT="$4"
+CORE_SO="${5:-}"
 
 APKTOOL=/tmp/apktool.jar
 if [ ! -f "$APKTOOL" ]; then
@@ -45,6 +46,12 @@ if [ -d l/res ]; then
         cp "$f" "$dest"
       fi
     done )
+fi
+
+if [ -n "$CORE_SO" ] && [ -f "$CORE_SO" ]; then
+  echo "== 放入核心库 =="
+  mkdir -p g/lib/arm64-v8a
+  cp "$CORE_SO" g/lib/arm64-v8a/libsvtl.so
 fi
 
 echo "== 改清单 =="
