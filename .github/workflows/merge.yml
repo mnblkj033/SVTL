@@ -65,3 +65,12 @@ jobs:
         with:
           name: SVTL-merged
           path: SVTL-merged.apk
+
+      # 同时发到私有仓库的 Release，方便自己下载（不公开）
+      - name: 发布到私有 Release
+        env:
+          GH_TOKEN: ${{ secrets.GAME_REPO_TOKEN }}
+        run: |
+          gh release view merged-latest -R mnblkj033/APK >/dev/null 2>&1 ||             gh release create merged-latest -R mnblkj033/APK --title "SVTL merged" --notes "游戏 + 启动器"
+          gh release upload merged-latest SVTL-merged.apk -R mnblkj033/APK --clobber
+          echo "下载地址：https://github.com/mnblkj033/APK/releases/tag/merged-latest"
