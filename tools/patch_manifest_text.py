@@ -42,6 +42,13 @@ def main(path: str) -> int:
     inner = re.sub(r"<intent-filter>.*?</intent-filter>", "", m.group(2), flags=re.S)
     text = text[: m.start()] + m.group(1) + inner + m.group(3) + text[m.end():]
 
+    # 让 Application 换成我们的：叠加层靠它挂到游戏窗口
+    app_pat = re.compile(r'(<application[^>]*android:name=")[^"]*(")', re.S)
+    if app_pat.search(text):
+        text = app_pat.sub(r'\1com.svtl.launcher.SvtlApp\2', text, count=1)
+    else:
+        text = text.replace('<application', '<application android:name="com.svtl.launcher.SvtlApp"', 1)
+
     idx = text.rfind("</application>")
     if idx < 0:
         print("找不到 </application>", file=sys.stderr)
