@@ -28,8 +28,24 @@ for d in l/smali l/smali_classes*; do
   i=$((i + 1))
 done
 
-echo "== 合并资源（不覆盖同名） =="
-cp -rn l/res/. g/res/ 2>/dev/null || true
+echo "== 合并资源 =="
+# values 目录：改文件名后合并，避免同名 values.xml 被跳过导致资源缺失
+if [ -d l/res ]; then
+  ( cd l/res && find . -type f -path "*/values*/*" | while read -r f; do
+      base="$(basename "$f")"
+      dest="g/res/$(dirname "$f")/${base%.*}_svtl.${base##*.}"
+      mkdir -p "$(dirname "$dest")"
+      cp "$f" "$dest"
+    done )
+  # 其它资源：同名跳过，保留游戏的
+  ( cd l/res && find . -type f ! -path "*/values*/*" | while read -r f; do
+      dest="g/res/$f"
+      if [ ! -e "$dest" ]; then
+        mkdir -p "$(dirname "$dest")"
+        cp "$f" "$dest"
+      fi
+    done )
+fi
 
 echo "== 改清单 =="
 python3 tools/patch_manifest_text.py g/AndroidManifest.xml
