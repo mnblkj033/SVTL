@@ -22,6 +22,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.svtl.manager.BuildConfig
 
 @Composable
 internal fun SettingsScreen(
@@ -93,7 +94,10 @@ internal fun SettingsScreen(
         TextButton(onClick = onClearLogs) { Text("清空日志") }
 
         Text("关于", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp))
-        Text("SVTL 启动器 0.2.0", style = MaterialTheme.typography.bodyMedium)
+        Text(
+            "SVTL 启动器 ${BuildConfig.VERSION_NAME}（${BuildConfig.VERSION_CODE}）",
+            style = MaterialTheme.typography.bodyMedium,
+        )
         Text(
             "布局参考 ZalithLauncher2",
             style = MaterialTheme.typography.bodySmall,

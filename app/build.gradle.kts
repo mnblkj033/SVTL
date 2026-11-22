@@ -13,13 +13,29 @@ android {
         applicationId = "com.svtl.manager"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        // CI 上用 run number 自增，保证每次安装都能覆盖升级
+        val run = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull()
+        versionCode = run ?: 1
+        versionName = if (run != null) "0.2.$run" else "0.2.0"
+    }
+
+    signingConfigs {
+        // 固定签名：debug/release 都用它，避免每次 CI 生成新 debug keystore 导致覆盖安装失败
+        create("svtl") {
+            storeFile = file("svtl.jks")
+            storePassword = "svtl1234"
+            keyAlias = "svtl"
+            keyPassword = "svtl1234"
+        }
     }
 
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("svtl")
+        }
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("svtl")
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
@@ -35,6 +51,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     packaging {

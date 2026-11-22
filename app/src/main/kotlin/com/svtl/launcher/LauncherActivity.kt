@@ -16,6 +16,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
+import androidx.compose.ui.graphics.Color
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -29,6 +30,24 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+
+private val LightScheme = lightColorScheme(
+    primary = Color(0xFF3F7A5A),
+    background = Color(0xFFF6F4EE),
+    surface = Color(0xFFFFFDF7),
+    surfaceVariant = Color(0xFFE9E5DA),
+    onSurface = Color(0xFF1C1B17),
+    onSurfaceVariant = Color(0xFF4A4740),
+)
+
+private val DarkScheme = darkColorScheme(
+    primary = Color(0xFF9BD3AE),
+    background = Color(0xFF101418),
+    surface = Color(0xFF161B21),
+    surfaceVariant = Color(0xFF222A31),
+    onSurface = Color(0xFFE7EAEC),
+    onSurfaceVariant = Color(0xFFA7B0B7),
+)
 
 /** 页面 */
 private sealed interface Screen {
@@ -56,7 +75,7 @@ class LauncherActivity : ComponentActivity() {
                 2 -> true
                 else -> isSystemInDarkTheme()
             }
-            MaterialTheme(colorScheme = if (dark) darkColorScheme() else lightColorScheme()) {
+            MaterialTheme(colorScheme = if (dark) DarkScheme else LightScheme) {
                 LauncherNav(
                     settings = settings,
                     themeMode = themeMode,
@@ -81,13 +100,19 @@ class LauncherActivity : ComponentActivity() {
     /** 申请「所有文件访问权限」（Android 11+ 跳系统页）。 */
     fun requestAllFiles() {
         if (Build.VERSION.SDK_INT >= 30) {
-            runCatching {
-                startActivity(
-                    Intent(
-                        Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION,
-                        Uri.parse("package:$packageName"),
-                    )
-                )
+            val pkg = Uri.parse("package:$packageName")
+            val appPage = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, pkg)
+            val ok1 = runCatching { startActivity(appPage) }.isSuccess
+            LogStore.add("权限页（应用）：${if (ok1) "已打开" else "打不开"}")
+            if (!ok1) {
+                val listPage = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
+                val ok2 = runCatching { startActivity(listPage) }.isSuccess
+                LogStore.add("权限页（列表）：${if (ok2) "已打开" else "打不开"}")
+                if (!ok2) {
+                    runCatching {
+                        startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, pkg))
+                    }
+                }
             }
         } else {
             requestPermissions(arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE), 1001)
