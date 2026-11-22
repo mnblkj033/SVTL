@@ -1,5 +1,8 @@
 package com.svtl.launcher
 
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.app.Service
 import android.content.Intent
 import android.graphics.Color
@@ -21,6 +24,24 @@ class OverlayService : Service() {
     private var wm: WindowManager? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        startForegroundCompat()
+        return START_STICKY
+    }
+
+    private fun startForegroundCompat() {
+        val nm = getSystemService(NotificationManager::class.java)
+        nm.createNotificationChannel(
+            NotificationChannel("svtl_overlay", "SVTL 状态条", NotificationManager.IMPORTANCE_MIN)
+        )
+        val n: Notification = Notification.Builder(this, "svtl_overlay")
+            .setContentTitle("SVTL")
+            .setContentText("游戏内状态条运行中")
+            .setSmallIcon(android.R.drawable.ic_menu_info_details)
+            .build()
+        startForeground(2001, n)
+    }
 
     override fun onCreate() {
         super.onCreate()

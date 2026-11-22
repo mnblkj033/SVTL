@@ -286,6 +286,20 @@ class LauncherActivity : Activity() {
         setContentView(root)
     }
 
+    override fun onResume() {
+        super.onResume()
+        // 从后台回来时确保核心还在（进程没被杀的话）
+        if (!NativeCore.isLoaded()) {
+            Thread {
+                if (NativeCore.load(null)) {
+                    NativeCore.init(filesDir.absolutePath)
+                    NativeCore.loadPlugins(File(filesDir, "plugins").absolutePath, "1.6.15.3")
+                    LogStore.add("核心已重新加载")
+                }
+            }.start()
+        }
+    }
+
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == REQ_PICK && resultCode == RESULT_OK) {
