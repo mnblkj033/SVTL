@@ -15,6 +15,7 @@ object NativeCore {
         if (loaded) return true
         loaded = runCatching { System.loadLibrary("svtl") }.isSuccess ||
             (absolutePath != null && runCatching { System.load(absolutePath) }.isSuccess)
+        android.util.Log.i("SVTL", "core loaded = $loaded")
         return loaded
     }
 

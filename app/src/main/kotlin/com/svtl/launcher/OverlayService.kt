@@ -27,6 +27,7 @@ import org.json.JSONArray
 class OverlayService : Service() {
 
     private var view: OverlayView? = null
+    private var backView: TextView? = null
     private var wm: WindowManager? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -63,6 +64,7 @@ class OverlayService : Service() {
             WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             PixelFormat.TRANSLUCENT,
         ).apply {
@@ -72,6 +74,39 @@ class OverlayService : Service() {
         }
         runCatching { manager.addView(v, params) }
         view = v
+
+        // 右下角小按钮：返回启动器（只有这一小块接收触摸）
+        val back = TextView(this).apply {
+            text = "返回启动器"
+            textSize = 12f
+            setTextColor(Color.WHITE)
+            background = GradientDrawable().apply {
+                setColor(Color.parseColor("#CC2A2A2A").toInt())
+                cornerRadius = 30f
+            }
+            setPadding(30, 16, 30, 16)
+            setOnClickListener {
+                runCatching {
+                    startActivity(
+                        Intent(this@OverlayService, LauncherActivity::class.java)
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+                    )
+                }
+            }
+        }
+        val backParams = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            PixelFormat.TRANSLUCENT,
+        ).apply {
+            gravity = Gravity.BOTTOM or Gravity.END
+            x = 24
+            y = 24
+        }
+        runCatching { manager.addView(back, backParams) }
+        backView = back
 
         // 没有钩到游戏时，也定时驱动插件，让它们能持续往叠加层画东西
         Thread {
@@ -84,6 +119,8 @@ class OverlayService : Service() {
 
     override fun onDestroy() {
         view?.stop()
+        backView?.let { b -> runCatching { wm?.removeView(b) } }
+        backView = null
         view?.let { v -> runCatching { wm?.removeView(v) } }
         view = null
         super.onDestroy()
@@ -182,7 +219,24 @@ private class OverlayView(context: Context) : View(context) {
             }
         }
 
-        // 2) 右上角调试信息
+        // 2) 左上角：核心日志最近几行
+        val logs = runCatching { NativeCore.logsJson() }.getOrNull()
+        if (!logs.isNullOrBlank()) {
+            runCatching {
+                val arr = JSONArray(logs)
+                val start = (arr.length() - 3).coerceAtLeast(0)
+                textPaint.color = Color.parseColor("#CCFFFFFF").toInt()
+                textPaint.textSize = 22f
+                var y = 80f
+                for (i in start until arr.length()) {
+                    val line = arr.getString(i)
+                    canvas.drawText(line.take(48), 24f, y, textPaint)
+                    y += 28f
+                }
+            }
+        }
+
+        // 3) 右上角调试信息
         val now = System.currentTimeMillis()
         val dt = (now - lastFrame).coerceAtLeast(1)
         lastFrame = now
