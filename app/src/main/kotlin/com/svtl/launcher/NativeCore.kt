@@ -10,10 +10,11 @@ object NativeCore {
     @Volatile
     private var loaded = false
 
-    /** 加载包里的 lib/arm64-v8a/libsvtl.so，成功返回 true。 */
-    fun load(absolutePath: String): Boolean {
+    /** 优先从 APK 自带库加载，失败再试压缩包里的绝对路径。 */
+    fun load(absolutePath: String?): Boolean {
         if (loaded) return true
-        loaded = runCatching { System.load(absolutePath) }.isSuccess
+        loaded = runCatching { System.loadLibrary("svtl") }.isSuccess ||
+            (absolutePath != null && runCatching { System.load(absolutePath) }.isSuccess)
         return loaded
     }
 

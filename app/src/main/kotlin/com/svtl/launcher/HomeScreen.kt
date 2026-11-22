@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Receipt
@@ -49,6 +50,7 @@ internal fun HomeScreen(
     onLaunch: () -> Unit,
     onOpenFiles: () -> Unit,
     onOpenLogs: () -> Unit,
+    onOpenPlugins: () -> Unit,
     onOpenSettings: () -> Unit,
     onInstall: (PackInfo) -> Unit,
     onOpenDetail: (PackInfo) -> Unit,
@@ -58,6 +60,7 @@ internal fun HomeScreen(
             status = status,
             onOpenFiles = onOpenFiles,
             onOpenLogs = onOpenLogs,
+            onOpenPlugins = onOpenPlugins,
             onOpenSettings = onOpenSettings,
         )
 
@@ -140,6 +143,7 @@ private fun TopBar(
     status: String,
     onOpenFiles: () -> Unit,
     onOpenLogs: () -> Unit,
+    onOpenPlugins: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
     Surface(color = MaterialTheme.colorScheme.surface, tonalElevation = 2.dp) {
@@ -162,6 +166,9 @@ private fun TopBar(
             }
             IconButton(onClick = onOpenLogs) {
                 Icon(Icons.Filled.Receipt, contentDescription = "日志")
+            }
+            IconButton(onClick = onOpenPlugins) {
+                Icon(Icons.Filled.Extension, contentDescription = "插件")
             }
             IconButton(onClick = onOpenSettings) {
                 Icon(Icons.Filled.Settings, contentDescription = "设置")

@@ -54,6 +54,7 @@ private sealed interface Screen {
     data object Home : Screen
     data object Settings : Screen
     data object Logs : Screen
+    data object Plugins : Screen
     data object Browser : Screen
     data class Detail(val pack: PackInfo) : Screen
 }
@@ -175,7 +176,20 @@ private fun LauncherNav(
         }
     }
 
-    LaunchedEffect(Unit) { refresh() }
+    LaunchedEffect(Unit) {
+        // 启动时把核心和已启用的插件挂上（合并后的 APK 里核心在 jniLibs 中）
+        if (NativeCore.load(null)) {
+            NativeCore.init(context.filesDir.absolutePath)
+            NativeCore.loadPlugins(
+                File(context.filesDir, "plugins").absolutePath,
+                "1.6.15.3",
+            )
+            LogStore.add("核心已加载，插件 ${PluginStore.scan(context).size} 个")
+        } else {
+            LogStore.add("核心未加载（APK 里没有 libsvtl.so）")
+        }
+        refresh()
+    }
 
     if (screen !is Screen.Home) {
         BackHandler {
@@ -193,6 +207,7 @@ private fun LauncherNav(
             onLaunch = { (context as? LauncherActivity)?.launchGame() },
             onOpenFiles = { openImporter() },
             onOpenLogs = { screen = Screen.Logs },
+            onOpenPlugins = { screen = Screen.Plugins },
             onOpenSettings = { screen = Screen.Settings },
             onInstall = { install(it) },
             onOpenDetail = { screen = Screen.Detail(it) },
@@ -213,6 +228,18 @@ private fun LauncherNav(
         )
 
         Screen.Logs -> LogsScreen(onBack = { screen = Screen.Home })
+
+        Screen.Plugins -> PluginsScreen(
+            onBack = { screen = Screen.Home },
+            onChanged = {
+                if (NativeCore.isLoaded()) {
+                    NativeCore.loadPlugins(
+                        File(context.filesDir, "plugins").absolutePath,
+                        "1.6.15.3",
+                    )
+                }
+            },
+        )
 
         Screen.Browser -> FileBrowserScreen(
             onBack = {
