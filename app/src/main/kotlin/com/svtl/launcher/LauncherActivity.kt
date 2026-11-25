@@ -3,6 +3,7 @@ package com.svtl.launcher
 import android.app.Activity
 import com.svtl.manager.BuildConfig
 import android.content.Intent
+import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -84,18 +85,40 @@ class LauncherActivity : Activity() {
     private fun backgroundFile() = java.io.File(filesDir, "background.img")
 
     /** 有自定义背景就用图片，否则用纯色。 */
+    /** 等比铺满并居中裁切，不拉伸变形。 */
+    private class CoverDrawable(private val bmp: android.graphics.Bitmap) : android.graphics.drawable.Drawable() {
+        private val paint = android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG)
+
+        override fun draw(canvas: Canvas) {
+            val vw = bounds.width().toFloat()
+            val vh = bounds.height().toFloat()
+            if (vw <= 0 || vh <= 0) return
+            val scale = maxOf(vw / bmp.width, vh / bmp.height)
+            val dw = bmp.width * scale
+            val dh = bmp.height * scale
+            val left = bounds.left + (vw - dw) / 2f
+            val top = bounds.top + (vh - dh) / 2f
+            canvas.drawBitmap(
+                bmp, null,
+                android.graphics.RectF(left, top, left + dw, top + dh),
+                paint,
+            )
+        }
+
+        override fun setAlpha(a: Int) { paint.alpha = a }
+        override fun setColorFilter(cf: android.graphics.ColorFilter?) { paint.colorFilter = cf }
+        @Deprecated("deprecated in API 29")
+        override fun getOpacity(): Int = android.graphics.PixelFormat.OPAQUE
+    }
+
     private fun applyBackground(view: View) {
         val drawable = runCatching {
             val f = backgroundFile()
             if (f.isFile) {
-                android.graphics.BitmapFactory.decodeFile(f.absolutePath)
-                    ?.let { android.graphics.drawable.BitmapDrawable(resources, it) }
+                android.graphics.BitmapFactory.decodeFile(f.absolutePath)?.let { CoverDrawable(it) }
             } else {
                 assets.open("launcher_bg.png").use { input ->
-                    android.graphics.drawable.BitmapDrawable(
-                        resources,
-                        android.graphics.BitmapFactory.decodeStream(input),
-                    )
+                    android.graphics.BitmapFactory.decodeStream(input)?.let { CoverDrawable(it) }
                 }
             }
         }.getOrNull()
