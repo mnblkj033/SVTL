@@ -11,10 +11,10 @@ object NativeCore {
     private var loaded = false
 
     /** 优先从 APK 自带库加载，失败再试压缩包里的绝对路径。 */
+    /** 只从 APK 自带的 jniLibs 加载，避免加载到压缩包里的旧版本。 */
     fun load(absolutePath: String?): Boolean {
         if (loaded) return true
-        loaded = runCatching { System.loadLibrary("svtl") }.isSuccess ||
-            (absolutePath != null && runCatching { System.load(absolutePath) }.isSuccess)
+        loaded = runCatching { System.loadLibrary("svtl") }.isSuccess
         android.util.Log.i("SVTL", "core loaded = $loaded")
         return loaded
     }
