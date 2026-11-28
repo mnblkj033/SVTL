@@ -1,0 +1,11 @@
+[package]
+name = "hello-plugin"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "hello_plugin"
+crate-type = ["cdylib"]
+
+[dependencies]
+svtl-core = { path = "../../core" }

@@ -41,14 +41,22 @@ jobs:
           fi
           ls -lh game.apk
 
-      - name: 下载核心库
-        env:
-          GH_TOKEN: ${{ secrets.GAME_REPO_TOKEN }}
+      - name: 构建核心库（Rust → arm64）
         run: |
           if [ -n "${{ inputs.core_so_url }}" ]; then
+            echo "使用外部核心库"
             curl -fL "${{ inputs.core_so_url }}" -o libsvtl.so
           else
-            gh release download game-1.6.15.3 -R mnblkj033/APK -p "libsvtl.so" -D . --clobber
+            rustup target add aarch64-linux-android
+            NDK="${ANDROID_NDK_LATEST_HOME:-$ANDROID_NDK_ROOT}"
+            echo "NDK=$NDK"
+            CLANG="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang"
+            test -x "$CLANG" || CLANG=$(ls "$NDK"/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android*-clang | sort | tail -1)
+            echo "CLANG=$CLANG"
+            CC_aarch64_linux_android="$CLANG" \
+            CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="$CLANG" \
+              cargo build --release --target aarch64-linux-android -p svtl-core
+            cp target/aarch64-linux-android/release/libsvtl.so libsvtl.so
           fi
           ls -lh libsvtl.so
 
